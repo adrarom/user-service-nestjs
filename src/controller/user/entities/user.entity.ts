@@ -1,4 +1,6 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, BeforeInsert, BeforeUpdate } from 'typeorm';
+import { Exclude } from 'class-transformer';
+import * as bcrypt from 'bcrypt';
 
 @Entity('users')
 export class User {
@@ -15,10 +17,19 @@ export class User {
   email: string;
 
   @Column({ type: 'varchar', nullable: false })
+  @Exclude()
   password: string;
 
-  @Column({ type: 'date', nullable: false })
-  birthDate: Date;
+  @Column({ type: 'varchar', nullable: true })
+  @Exclude()
+  passwordResetToken?: string | null;
+
+  @Column({ type: 'timestamp', nullable: true })
+  @Exclude()
+  passwordResetExpires?: Date | null;
+
+  @Column({ type: 'date', nullable: true })
+  birthDate: string;
 
   @Column({ type: 'varchar', nullable: true })
   profilePicture: string;
@@ -29,13 +40,35 @@ export class User {
   @Column({ type: 'timestamp', nullable: true })
   lastAccess: Date;
 
+  @Column({ type: 'jsonb', nullable: true })
+  preferences: {
+    emailNotifications: boolean;
+    pushNotifications: boolean;
+    smsNotifications: boolean;
+    language: string;
+    timezone: string;
+  };
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  async hashPassword() {
+    if (this.password) {
+      const salt = await bcrypt.genSalt();
+      this.password = await bcrypt.hash(this.password, salt);
+    }
+  }
+
+  async validatePassword(password: string): Promise<boolean> {
+    return bcrypt.compare(password, this.password);
+  }
+
   @Column({ type: 'varchar', nullable: true })
   phoneNumber: string;
 
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
-  @Column({ type: 'varchar', nullable: false })
+  @Column({ type: 'varchar', nullable: false, default: 'user' })
   role: string;
 
   @Column({ type: 'varchar', nullable: true })
